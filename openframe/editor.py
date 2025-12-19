@@ -1,7 +1,7 @@
 import av
 import numpy as np
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 
@@ -11,6 +11,16 @@ from openframe.text import TextClip
 if TYPE_CHECKING:
     from av.container.output import OutputContainer
     from av.video.stream import VideoStream
+
+
+class RenderableElement(Protocol):
+    """Protocol for elements that can be rendered onto a frame."""
+
+    def is_visible(self, t: float) -> bool:
+        """Determine whether the clip is visible at the requested time."""
+
+    def render(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
+        """Draw the clip onto the provided canvas and draw context."""
 
 
 @dataclass
@@ -28,7 +38,7 @@ class VideoEditor:
     height: int
     fps: int
     output_path: str = 'output_multi.mp4'
-    text_clips: list[TextClip] = field(default_factory=list)
+    elements: list[RenderableElement] = field(default_factory=list)
     output_container: 'OutputContainer | None' = field(init=False, default=None)
     stream: 'VideoStream | None' = field(init=False, default=None)
 
@@ -45,13 +55,13 @@ class VideoEditor:
         self.stream.height = self.height
         self.stream.pix_fmt = 'yuv420p'
 
-    def add(self, element: TextClip) -> None:
-        """Add TextClip to render queue
+    def add(self, element: RenderableElement) -> None:
+        """Enqueue a frame element for later rendering.
 
         Args:
-            element (TextClip): _description_
+            element (RenderableElement): Element that can draw itself.
         """
-        self.text_clips.append(element)
+        self.elements.append(element)
         
 
     def _create_frame(self, t: float) -> np.ndarray:
@@ -67,9 +77,9 @@ class VideoEditor:
         img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 255))
         draw = ImageDraw.Draw(img)
 
-        for clip in self.text_clips:
+        for clip in self.elements:
             if clip.is_visible(t):
-                draw.text(clip.position, clip.text, font=clip.load_font(), fill=clip.color)
+                clip.render(img, draw)
 
         return np.array(img)
 

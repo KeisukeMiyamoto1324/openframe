@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple
-from PIL import ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from openframe.element import FrameElement
 
@@ -37,3 +37,13 @@ class TextClip(FrameElement):
         """
 
         return ImageFont.truetype(self.font, self.font_size)
+
+    def render(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
+        """Draw the text clip on the provided canvas via the draw context.
+
+        Args:
+            canvas (Image.Image): Underlying image to draw onto.
+            draw (ImageDraw.ImageDraw): Drawing helper for text rendering.
+        """
+
+        draw.text(self.position, self.text, font=self.load_font(), fill=self.color)
