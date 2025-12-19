@@ -3,7 +3,7 @@ from typing import Tuple
 from PIL import Image, ImageDraw
 
 
-@dataclass
+@dataclass(kw_only=True)
 class FrameElement:
     """Base element that tracks timing and fade animations for clips."""
 

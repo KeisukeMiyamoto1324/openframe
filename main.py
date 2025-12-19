@@ -13,7 +13,9 @@ def main():
         path="assets/sample.jpg",
         start_time=0,
         duration=10,
-        position=(200, 120)
+        position=(200, 120),
+        fade_in_duration=1.0,
+        fade_out_duration=1.0
     )
 
     text_project_name = TextClip(
@@ -21,7 +23,9 @@ def main():
         start_time=0,
         duration=5,
         position=(800, 200),
-        font_size=32
+        font_size=32,
+        fade_in_duration=0.6,
+        fade_out_duration=0.6
     )
 
     editor.add(image_clip)
