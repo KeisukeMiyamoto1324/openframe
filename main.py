@@ -9,6 +9,13 @@ def main():
         output_path="assets/output.mp4"
     )
     
+    image_clip = ImageClip(
+        path="assets/sample.jpg",
+        start_time=0,
+        duration=10,
+        position=(200, 120)
+    )
+
     text_project_name = TextClip(
         text="project alpha",
         start_time=0,
@@ -16,7 +23,8 @@ def main():
         position=(800, 200),
         font_size=32
     )
-    
+
+    editor.add(image_clip)
     editor.add(text_project_name)
     editor.render(total_duration=10)
     

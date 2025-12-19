@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Protocol
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 
-from openframe.text import TextClip
-
 
 if TYPE_CHECKING:
     from av.container.output import OutputContainer
@@ -37,7 +35,7 @@ class VideoEditor:
     width: int
     height: int
     fps: int
-    output_path: str = 'output_multi.mp4'
+    output_path: str = 'output.mp4'
     elements: list[RenderableElement] = field(default_factory=list)
     output_container: 'OutputContainer | None' = field(init=False, default=None)
     stream: 'VideoStream | None' = field(init=False, default=None)
