@@ -14,7 +14,9 @@ def main():
         start_time=0,
         duration=10,
         position=(200, 120),
-        size=(800, 800),
+        size=(800, 100),
+        content_mode=ContentMode.FILL,
+        fade_in_duration=1
     )
 
     text_project_name = TextClip(
