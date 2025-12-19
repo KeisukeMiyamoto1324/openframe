@@ -11,7 +11,7 @@ class VideoEditor:
         self.width = width
         self.height = height
         self.fps = fps
-        self.text_clips = []
+        self.text_clips: list[TextClip] = []
         self.output_container = av.open('output_multi.mp4', mode='w')
         self.stream = self.output_container.add_stream('h264', rate=fps)
         self.stream.width = width
@@ -28,7 +28,7 @@ class VideoEditor:
 
         for clip in self.text_clips:
             if clip.is_visible(t):
-                draw.text(clip.position, clip.text, font=clip.font, fill=clip.color)
+                draw.text(clip.position, clip.text, font=clip.load_font(), fill=clip.color)
 
         return np.array(img)
 
