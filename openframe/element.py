@@ -10,6 +10,7 @@ class FrameElement:
     start_time: float
     duration: float
     position: Tuple[int, int]
+    opacity: float = 1.0
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
 
@@ -48,6 +49,10 @@ class FrameElement:
         if not self.is_visible(t):
             return 0.0
 
+        target_opacity = max(0.0, min(1.0, self.opacity))
+        if target_opacity == 0.0:
+            return 0.0
+
         opacity = 1.0
         fade_in = min(self.fade_in_duration, self.duration)
         if fade_in > 0:
@@ -61,7 +66,7 @@ class FrameElement:
             if t >= fade_out_start:
                 opacity *= (self.end_time - t) / fade_out
 
-        return max(0.0, min(1.0, opacity))
+        return max(0.0, min(1.0, target_opacity * opacity))
 
     def render(self, canvas: Image.Image, t: float) -> None:
         """Draw the element onto the canvas with fade handled via an overlay.
