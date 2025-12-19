@@ -10,7 +10,6 @@ class ImageClip(FrameElement):
     """Represents an image overlay with timing, size, and placement."""
 
     path: str
-    size: Tuple[int, int] | None = None
     image: Image.Image = field(init=False)
     content_mode: ContentMode = ContentMode.NONE
 

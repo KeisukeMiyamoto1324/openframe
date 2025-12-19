@@ -10,6 +10,7 @@ class FrameElement:
     start_time: float
     duration: float
     position: Tuple[int, int]
+    size: Tuple[int, int] | None = None
     opacity: float = 1.0
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
