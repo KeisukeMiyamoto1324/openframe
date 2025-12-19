@@ -22,9 +22,6 @@ class TextClip(FrameElement):
     """
     
     text: str
-    start_time: float
-    duration: float
-    position: Tuple[int, int]
     font_size: int
     color: Tuple[int, int, int, int] = (255, 255, 255, 255)
     font: str = DEFAULT_FONT_PATH

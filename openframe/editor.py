@@ -1,9 +1,11 @@
 import av
 import numpy as np
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 from PIL import Image
 from tqdm import tqdm
+
+from openframe.element import FrameElement
 
 
 if TYPE_CHECKING:
@@ -11,18 +13,8 @@ if TYPE_CHECKING:
     from av.video.stream import VideoStream
 
 
-class RenderableElement(Protocol):
-    """Protocol for elements that can be rendered onto a frame."""
-
-    def is_visible(self, t: float) -> bool:
-        """Determine whether the clip is visible at the requested time."""
-
-    def render(self, canvas: Image.Image, t: float) -> None:
-        """Draw the clip onto the provided canvas at the requested time."""
-
-
 @dataclass
-class VideoEditor:
+class Scene:
     """Manage clip composition and export of video timelines.
 
     Attributes:
@@ -36,9 +28,10 @@ class VideoEditor:
     height: int
     fps: int
     output_path: str = 'output.mp4'
-    elements: list[RenderableElement] = field(default_factory=list)
-    output_container: 'OutputContainer | None' = field(init=False, default=None)
-    stream: 'VideoStream | None' = field(init=False, default=None)
+    _elements: list[FrameElement] = field(default_factory=list)
+    _scenes: list['Scene'] = field(default_factory=list)
+    _output_container: 'OutputContainer | None' = field(init=False, default=None)
+    _stream: 'VideoStream | None' = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         """Open the output container and configure the stream.
@@ -46,21 +39,23 @@ class VideoEditor:
         Returns:
             None
         """
+        self._output_container = av.open(self.output_path, mode='w')
+        self._stream = self._output_container.add_stream('h264', rate=self.fps)
+        self._stream.width = self.width
+        self._stream.height = self.height
+        self._stream.pix_fmt = 'yuv420p'
 
-        self.output_container = av.open(self.output_path, mode='w')
-        self.stream = self.output_container.add_stream('h264', rate=self.fps)
-        self.stream.width = self.width
-        self.stream.height = self.height
-        self.stream.pix_fmt = 'yuv420p'
-
-    def add(self, element: RenderableElement) -> None:
+    def add(self, element: FrameElement) -> None:
         """Enqueue a frame element for later rendering.
 
         Args:
             element (RenderableElement): Element that can draw itself.
         """
-        self.elements.append(element)
+        self._elements.append(element)
         
+    def add_scene(self, scene: 'Scene') -> None:
+        """Enqueue a scene for later rendering."""
+        self._scenes.append(scene)
 
     def _create_frame(self, t: float) -> np.ndarray:
         """Render all visible clips onto a single RGBA frame.
@@ -74,7 +69,7 @@ class VideoEditor:
 
         img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 255))
 
-        for clip in self.elements:
+        for clip in self._elements:
             if clip.is_visible(t):
                 clip.render(img, t)
 
@@ -96,10 +91,10 @@ class VideoEditor:
             t = i / self.fps
             frame_data = self._create_frame(t)
             frame = av.VideoFrame.from_ndarray(frame_data, format='rgba')
-            for packet in self.stream.encode(frame):
-                self.output_container.mux(packet)
+            for packet in self._stream.encode(frame):
+                self._output_container.mux(packet)
 
-        for packet in self.stream.encode():
-            self.output_container.mux(packet)
+        for packet in self._stream.encode():
+            self._output_container.mux(packet)
 
-        self.output_container.close()
+        self._output_container.close()
