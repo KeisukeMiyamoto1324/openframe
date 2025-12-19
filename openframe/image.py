@@ -23,7 +23,12 @@ class ImageClip(FrameElement):
             else loaded
         )
 
-    def render(self, canvas: Image.Image, _draw: ImageDraw.ImageDraw) -> None:
-        """Paste the clip's image onto the canvas using its alpha channel."""
+    def _render_content(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
+        """Paste the clip's image onto the overlay canvas using its alpha channel.
+
+        Args:
+            canvas: Overlay canvas that matches the target frame size.
+            draw: Drawing helper (unused) that keeps signature consistent.
+        """
 
         canvas.paste(self.image, self.position, self.image)

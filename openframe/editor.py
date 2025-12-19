@@ -2,7 +2,7 @@ import av
 import numpy as np
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
-from PIL import Image, ImageDraw
+from PIL import Image
 from tqdm import tqdm
 
 
@@ -17,8 +17,8 @@ class RenderableElement(Protocol):
     def is_visible(self, t: float) -> bool:
         """Determine whether the clip is visible at the requested time."""
 
-    def render(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        """Draw the clip onto the provided canvas and draw context."""
+    def render(self, canvas: Image.Image, t: float) -> None:
+        """Draw the clip onto the provided canvas at the requested time."""
 
 
 @dataclass
@@ -73,11 +73,10 @@ class VideoEditor:
         """
 
         img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 255))
-        draw = ImageDraw.Draw(img)
 
         for clip in self.elements:
             if clip.is_visible(t):
-                clip.render(img, draw)
+                clip.render(img, t)
 
         return np.array(img)
 

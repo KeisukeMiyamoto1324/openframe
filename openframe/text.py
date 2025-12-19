@@ -38,12 +38,12 @@ class TextClip(FrameElement):
 
         return ImageFont.truetype(self.font, self.font_size)
 
-    def render(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
-        """Draw the text clip on the provided canvas via the draw context.
+    def _render_content(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
+        """Draw the text clip on the provided overlay context.
 
         Args:
-            canvas (Image.Image): Underlying image to draw onto.
-            draw (ImageDraw.ImageDraw): Drawing helper for text rendering.
+            canvas: Overlay canvas matching the target frame size.
+            draw: Drawing helper for text rendering.
         """
 
         draw.text(self.position, self.text, font=self.load_font(), fill=self.color)
