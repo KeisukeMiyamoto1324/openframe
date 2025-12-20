@@ -23,6 +23,7 @@ class Scene:
     _scenes: list['Scene'] = field(default_factory=list)
     _audio: list[AudioClip] = field(default_factory=list)
     _content_type: Optional['Scene.ContentType'] = field(default=None, init=False)
+    _duration: float = field(default=0.0, init=False)
     
 
     def add(self, element: FrameElement, layer: Layer=Layer.TOP) -> None:
@@ -37,6 +38,8 @@ class Scene:
             self._elements.append(element)
         elif layer == Layer.BOTTOM:
             self._elements.insert(0, element)
+
+        self._update_duration(element.end_time)
         
     def add_scene(self, scene: 'Scene', layer: Layer=Layer.TOP) -> None:
         """Queue a nested scene and guard against mixing with frame elements.
@@ -51,6 +54,8 @@ class Scene:
         elif layer == Layer.BOTTOM:
             self._scenes.insert(0, scene)
 
+        self._update_duration(scene.start_at + scene.duration)
+
     def add_audio(self, clip: AudioClip, layer: Layer=Layer.TOP) -> None:
         """Queue an audio clip for this scene.
 
@@ -61,6 +66,8 @@ class Scene:
             self._audio.append(clip)
         elif layer == Layer.BOTTOM:
             self._audio.insert(0, clip)
+
+        self._update_duration(clip.end_time)
         
     def _get_elements(self) -> list[FrameElement]:
         """Adjusts element start times and returns the configured element list.
@@ -99,14 +106,17 @@ class Scene:
         
     @property
     def total_duration(self) -> float:
-        elements = self._get_elements()
-        audio_clips = self._get_audio()
-        end_times = [self.start_at]
+        return self.start_at + self._duration
 
-        end_times.extend(element.end_time for element in elements)
-        end_times.extend(clip.end_time for clip in audio_clips)
+    @property
+    def duration(self) -> float:
+        """Return the duration of this scene relative to its own start.
 
-        return max(end_times)
+        Returns:
+            float: Duration in seconds.
+        """
+
+        return self._duration
         
 
     @staticmethod
@@ -134,6 +144,16 @@ class Scene:
             list[AudioClip]: New audio clips with adjusted start times.
         """
         return [replace(clip, start_time=clip.start_time + offset) for clip in clips]
+
+    def _update_duration(self, end_time: float) -> None:
+        """Update cached duration if the new end time exceeds it.
+
+        Args:
+            end_time: End time relative to this scene's timeline.
+        """
+
+        if end_time > self._duration:
+            self._duration = end_time
 
     def _ensure_content_type(self, desired: 'Scene.ContentType') -> None:
         """Set the content type once and prevent mixing elements with scenes.

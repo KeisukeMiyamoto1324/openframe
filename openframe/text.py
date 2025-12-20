@@ -1,10 +1,25 @@
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 from openframe.element import FrameElement
 
 DEFAULT_FONT_PATH = "/System/Library/Fonts/Helvetica.ttc"
+
+@lru_cache(maxsize=256)
+def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
+    """Load a font from disk and cache it by path and size.
+
+    Args:
+        path: File path for the font.
+        size: Font size in points.
+
+    Returns:
+        ImageFont.FreeTypeFont: Loaded font instance.
+    """
+
+    return ImageFont.truetype(path, size)
 
 
 @dataclass
@@ -33,7 +48,7 @@ class TextClip(FrameElement):
             ImageFont.FreeTypeFont: The font ready for rendering text.
         """
 
-        return ImageFont.truetype(self.font, self.font_size)
+        return _load_font(self.font, self.font_size)
 
     def _render_content(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
         """Draw the text clip on the provided overlay context.

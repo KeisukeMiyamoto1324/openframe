@@ -1,6 +1,7 @@
 from openframe import *
 
 from dataclasses import dataclass
+import time
 
 
 @dataclass
@@ -48,22 +49,16 @@ def create_scene(bg: str, telop: str, slide: str) -> Scene:
         size=(1920, 1080),
         content_mode=ContentMode.FILL
     )
-    
-    audio_clip = AudioClip(
-        source_path="assets/audio1.mp3",
-        start_time=0,
-        source_start=50,
-        source_end=51,
-    )
 
     scene.add(bg_clip)
     scene.add(slide_clip)
     scene.add(telop_clip)
-    scene.add_audio(audio_clip)
-    
+
     return scene
 
 def main():
+    start = time.time()
+    
     scene_configs = [
         SceneConfig(telop="Every night, Tom waited at the small train station.", slide="assets/sample1.jpg"),
         SceneConfig(telop="The lights were weak, and the air was cold.", slide="assets/sample2.jpg"),
@@ -72,7 +67,7 @@ def main():
     
     editor = Scene(start_at=0)
     
-    for scene_config in scene_configs:
+    for scene_config in scene_configs*3:
         scene = create_scene(bg="assets/sample.jpg", telop=scene_config.telop, slide=scene_config.slide)
         scene.start_at = editor.total_duration
         editor.add_scene(scene)
@@ -84,7 +79,11 @@ def main():
         source_end=editor.total_duration,
     )
     editor.add_audio(audio_clip)
-        
+    
+    end = time.time()
+    
+    print(f"{end-start}")
+    
     editor.render(output_path="assets/youtube.mp4")
 
 

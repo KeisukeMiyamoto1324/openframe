@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 
 import av
 import numpy as np
@@ -8,6 +9,53 @@ import numpy as np
 class AudioLayout(Enum):
     MONO = "mono"
     STEREO = "stereo"
+
+@lru_cache(maxsize=64)
+def _source_duration_cached(path: str) -> float:
+    """Return cached duration for the given audio source.
+
+    Args:
+        path: File path for the audio asset.
+
+    Returns:
+        float: Duration in seconds.
+    """
+
+    container = av.open(path)
+    stream = container.streams.audio[0]
+    duration = float(stream.duration * stream.time_base)
+    container.close()
+    return duration
+
+
+@lru_cache(maxsize=16)
+def _decode_audio_cached(path: str, sample_rate: int, layout: str) -> np.ndarray:
+    """Decode and cache audio samples for a given source and format.
+
+    Args:
+        path: File path for the audio asset.
+        sample_rate: Target sample rate.
+        layout: Audio layout name.
+
+    Returns:
+        np.ndarray: Audio samples shaped as (samples, channels).
+    """
+
+    container = av.open(path)
+    stream = container.streams.audio[0]
+    resampler = av.AudioResampler(format="fltp", layout=layout, rate=sample_rate)
+    frames: list[np.ndarray] = []
+
+    for frame in container.decode(stream):
+        resampled = resampler.resample(frame) or []
+        if not isinstance(resampled, list):
+            resampled = [resampled]
+        frames.extend([chunk.to_ndarray() for chunk in resampled])
+
+    container.close()
+
+    merged = np.concatenate(frames, axis=1)
+    return merged.T.astype(np.float32)
 
 
 @dataclass(kw_only=True)
@@ -59,11 +107,7 @@ class AudioClip:
         Returns:
             float: Duration in seconds.
         """
-        container = av.open(self.source_path)
-        stream = container.streams.audio[0]
-        duration = float(stream.duration * stream.time_base)
-        container.close()
-        return duration
+        return _source_duration_cached(self.source_path)
 
     def _decode_audio(self, sample_rate: int, layout: str) -> np.ndarray:
         """Decode audio file into a normalized float32 array.
@@ -75,18 +119,4 @@ class AudioClip:
         Returns:
             np.ndarray: Audio samples shaped as (samples, channels).
         """
-        container = av.open(self.source_path)
-        stream = container.streams.audio[0]
-        resampler = av.AudioResampler(format="fltp", layout=layout, rate=sample_rate)
-        frames: list[np.ndarray] = []
-
-        for frame in container.decode(stream):
-            resampled = resampler.resample(frame) or []
-            if not isinstance(resampled, list):
-                resampled = [resampled]
-            frames.extend([chunk.to_ndarray() for chunk in resampled])
-
-        container.close()
-
-        merged = np.concatenate(frames, axis=1)
-        return merged.T.astype(np.float32)
+        return _decode_audio_cached(self.source_path, sample_rate, layout)
