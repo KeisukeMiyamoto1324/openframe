@@ -33,6 +33,23 @@ class FrameElement:
         raise NotImplementedError("FrameElement.bounding_box_size should be implemented by subclasses.")
         
 
+    @property
+    def render_position(self) -> Tuple[int, int]:
+        """Translate the configured anchor-relative position into a top-left coordinate."""
+
+        width, height = self.bounding_box_size
+        base_x, base_y = self.position
+        offsets = {
+            AnchorPoint.TOP_LEFT: (0, 0),
+            AnchorPoint.TOP_RIGHT: (-width, 0),
+            AnchorPoint.BOTTOM_LEFT: (0, -height),
+            AnchorPoint.BOTTOM_RIGHT: (-width, -height),
+            AnchorPoint.CENTER: (-width // 2, -height // 2),
+        }
+
+        offset_x, offset_y = offsets.get(self.anchor_point, (0, 0))
+        return base_x + offset_x, base_y + offset_y
+
     def is_visible(self, t: float) -> bool:
         """Report whether the element is visible at the requested time.
 

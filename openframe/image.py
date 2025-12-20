@@ -42,7 +42,7 @@ class ImageClip(FrameElement):
             draw: Drawing helper (unused) that keeps signature consistent.
         """
 
-        canvas.paste(self.image, self.position, self.image)
+        canvas.paste(self.image, self.render_position, self.image)
 
     @property
     def bounding_box_size(self) -> Tuple[int, int]:

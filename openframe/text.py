@@ -43,7 +43,7 @@ class TextClip(FrameElement):
             draw: Drawing helper for text rendering.
         """
 
-        draw.text(self.position, self.text, font=self.load_font(), fill=self.color)
+        draw.text(self.render_position, self.text, font=self.load_font(), fill=self.color)
 
     @property
     def bounding_box_size(self) -> Tuple[int, int]:
