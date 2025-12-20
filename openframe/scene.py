@@ -1,36 +1,54 @@
 import av
 import numpy as np
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import Optional
 from PIL import Image
 from tqdm import tqdm
 
 from openframe.element import FrameElement
 
 
-if TYPE_CHECKING:
-    from av.container.output import OutputContainer
-    from av.video.stream import VideoStream
-
-
 @dataclass
 class Scene:
     """Manage clip composition and export of video timelines."""
+    class ContentType(Enum):
+        ELEMENTS = "elements"
+        SCENES = "scenes"
+
     _elements: list[FrameElement] = field(default_factory=list)
     _scenes: list['Scene'] = field(default_factory=list)
+    _content_type: Optional['Scene.ContentType'] = field(default=None, init=False)
     
 
     def add(self, element: FrameElement) -> None:
         """Enqueue a frame element for later rendering.
 
         Args:
-            element (RenderableElement): Element that can draw itself.
+            element (FrameElement): Element that can draw itself.
         """
+        self._ensure_content_type(self.ContentType.ELEMENTS)
         self._elements.append(element)
         
     def add_scene(self, scene: 'Scene') -> None:
         """Enqueue a scene for later rendering."""
+        self._ensure_content_type(self.ContentType.SCENES)
         self._scenes.append(scene)
+
+    def _ensure_content_type(self, desired: 'Scene.ContentType') -> None:
+        """Set the content type once and prevent mixing elements with scenes.
+
+        Args:
+            desired (Scene.ContentType): Intended content type for this scene.
+        """
+        if self._content_type is None:
+            self._content_type = desired
+            return
+        if self._content_type is not desired:
+            raise ValueError(
+                "Scene already configured for "
+                f"{self._content_type.value}, cannot add {desired.value}."
+            )
 
     def _create_frame(self, t: float, width: int, height: int) -> np.ndarray:
         """Render all visible clips onto a single RGBA frame.
