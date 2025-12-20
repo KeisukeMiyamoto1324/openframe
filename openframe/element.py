@@ -106,14 +106,15 @@ class FrameElement:
         if opacity <= 0:
             return
 
-        overlay = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
+        width, height = self.bounding_box_size
+        overlay = Image.new('RGBA', (max(1, width), max(1, height)), (0, 0, 0, 0))
         overlay_draw = ImageDraw.Draw(overlay)
         self._render_content(overlay, overlay_draw)
 
         if opacity < 1.0:
             overlay = self._apply_opacity(overlay, opacity)
 
-        canvas.paste(overlay, (0, 0), overlay)
+        canvas.paste(overlay, self.render_position, overlay)
 
     def _render_content(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
         """Render element content onto an overlay before fade adjustments.

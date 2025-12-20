@@ -211,6 +211,10 @@ class Scene:
         """
         output_container = av.open(output_path, mode='w')
         stream = output_container.add_stream('h264', rate=fps)
+        stream.codec_context.options = {
+            "preset": "ultrafast",
+            "tune": "zerolatency",
+        }
         stream.pix_fmt = 'yuv420p'
         stream.width, stream.height = width, height
         total_frames = int(self.total_duration * fps)

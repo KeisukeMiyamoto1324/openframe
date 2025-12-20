@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Tuple
 from PIL import Image, ImageDraw, ImageFont
@@ -40,6 +40,23 @@ class TextClip(FrameElement):
     font_size: int
     color: Tuple[int, int, int, int] = (255, 255, 255, 255)
     font: str = DEFAULT_FONT_PATH
+    image: Image.Image = field(init=False)
+    _bbox_size: Tuple[int, int] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Pre-render text into an RGBA image for fast compositing."""
+
+        font = self.load_font()
+        probe = Image.new('RGBA', (1, 1))
+        probe_draw = ImageDraw.Draw(probe)
+        left, top, right, bottom = probe_draw.textbbox((0, 0), self.text, font=font)
+        width = max(1, right - left)
+        height = max(1, bottom - top)
+        self._bbox_size = (width, height)
+
+        self.image = Image.new('RGBA', self._bbox_size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(self.image)
+        draw.text((-left, -top), self.text, font=font, fill=self.color)
 
     def load_font(self) -> ImageFont.FreeTypeFont:
         """Load the configured font at the clip's size.
@@ -58,14 +75,10 @@ class TextClip(FrameElement):
             draw: Drawing helper for text rendering.
         """
 
-        draw.text(self.render_position, self.text, font=self.load_font(), fill=self.color)
+        canvas.paste(self.image, (0, 0), self.image)
 
     @property
     def bounding_box_size(self) -> Tuple[int, int]:
         """Compute the pixel area required to render the clip's text."""
 
-        font = self.load_font()
-        overlay = Image.new('RGBA', (1, 1))
-        draw = ImageDraw.Draw(overlay)
-        left, top, right, bottom = draw.textbbox((0, 0), self.text, font=font)
-        return right - left, bottom - top
+        return self._bbox_size
