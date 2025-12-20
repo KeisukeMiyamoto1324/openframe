@@ -7,6 +7,9 @@ class ContentMode(Enum):
     FIT = "fit"
     NONE = "none"
 
+class Layer(Enum):
+    TOP = "top"
+    BOTTOM = "bottom"
 
 def _compute_scaled_size(
     original_size: Tuple[int, int],

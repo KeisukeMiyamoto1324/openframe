@@ -1,12 +1,13 @@
 import av
 import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Optional
 from PIL import Image
 from tqdm import tqdm
 
 from openframe.element import FrameElement
+from openframe.util import Layer
 
 
 @dataclass
@@ -22,23 +23,31 @@ class Scene:
     _content_type: Optional['Scene.ContentType'] = field(default=None, init=False)
     
 
-    def add(self, element: FrameElement) -> None:
+    def add(self, element: FrameElement, layer: Layer=Layer.TOP) -> None:
         """Enqueue a frame element for later rendering.
 
         Args:
             element (FrameElement): Element that can draw itself.
         """
         self._ensure_content_type(self.ContentType.ELEMENTS)
-        self._elements.append(element)
         
-    def add_scene(self, scene: 'Scene') -> None:
+        if layer == Layer.TOP:
+            self._elements.append(element)
+        elif layer == Layer.BOTTOM:
+            self._elements.insert(0, element)
+        
+    def add_scene(self, scene: 'Scene', layer: Layer=Layer.TOP) -> None:
         """Queue a nested scene and guard against mixing with frame elements.
 
         Args:
             scene (Scene): Scene whose timeline should be rendered as part of this scene.
         """
         self._ensure_content_type(self.ContentType.SCENES)
-        self._scenes.append(scene)
+        
+        if layer == Layer.TOP:
+            self._scenes.append(scene)
+        elif layer == Layer.BOTTOM:
+            self._scenes.insert(0, scene)
         
     def _get_elements(self) -> list[FrameElement]:
         """Adjusts element start times and returns the configured element list.
@@ -47,12 +56,36 @@ class Scene:
             list[FrameElement]: Elements shifted according to this scene's start time.
         """
         if self._content_type == self.ContentType.ELEMENTS:
-            for element in self._elements:
-                element.start_time += self.start_at
-            return self._elements
+            return self._clone_with_offset(self._elements, self.start_at)
+
+        if self._content_type == self.ContentType.SCENES:
+            elements: list[FrameElement] = []
+            for scene in self._scenes:
+                child_elements = scene._get_elements()
+                elements.extend(self._clone_with_offset(child_elements, self.start_at))
+            return elements
         
-        elif self._content_type == self.ContentType.SCENES:
-            pass
+    @property
+    def total_duration(self) -> float:
+        elements = self._get_elements()
+        if not elements:
+            return self.start_at
+
+        return max(element.end_time for element in elements)
+        
+
+    @staticmethod
+    def _clone_with_offset(elements: list[FrameElement], offset: float) -> list[FrameElement]:
+        """Return copies of elements with their start times shifted.
+
+        Args:
+            elements (list[FrameElement]): Elements to clone.
+            offset (float): Amount of seconds to add to each start time.
+
+        Returns:
+            list[FrameElement]: New elements with adjusted start times.
+        """
+        return [replace(element, start_time=element.start_time + offset) for element in elements]
 
     def _ensure_content_type(self, desired: 'Scene.ContentType') -> None:
         """Set the content type once and prevent mixing elements with scenes.
@@ -91,7 +124,6 @@ class Scene:
 
     def render(
         self, 
-        total_duration: float, 
         width: int = 1920, 
         height: int = 1080, 
         fps: int = 30, 
@@ -113,7 +145,7 @@ class Scene:
         stream = output_container.add_stream('h264', rate=fps)
         stream.pix_fmt = 'yuv420p'
         stream.width, stream.height = width, height
-        total_frames = int(total_duration * fps)
+        total_frames = int(self.total_duration * fps)
         
         self._elements = self._get_elements()
 
