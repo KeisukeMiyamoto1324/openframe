@@ -16,6 +16,7 @@ class Scene:
         ELEMENTS = "elements"
         SCENES = "scenes"
 
+    start_at: float
     _elements: list[FrameElement] = field(default_factory=list)
     _scenes: list['Scene'] = field(default_factory=list)
     _content_type: Optional['Scene.ContentType'] = field(default=None, init=False)
@@ -34,6 +35,15 @@ class Scene:
         """Enqueue a scene for later rendering."""
         self._ensure_content_type(self.ContentType.SCENES)
         self._scenes.append(scene)
+        
+    def _get_elements(self) -> list[FrameElement]:
+        if self._content_type == self.ContentType.ELEMENTS:
+            for element in self._elements:
+                element.start_time += self.start_at
+            return self._elements
+        
+        elif self._content_type == self.ContentType.SCENES:
+            pass
 
     def _ensure_content_type(self, desired: 'Scene.ContentType') -> None:
         """Set the content type once and prevent mixing elements with scenes.
@@ -89,6 +99,8 @@ class Scene:
         stream.pix_fmt = 'yuv420p'
         stream.width, stream.height = width, height
         total_frames = int(total_duration * fps)
+        
+        self._elements = self._get_elements()
 
         for i in tqdm(range(total_frames), desc="Exporting", unit="frame", ncols=100):
             t = i / fps

@@ -2,12 +2,12 @@ from openframe import *
 
 
 def main():
-    editor = Scene()
+    editor = Scene(start_at=3)
     
     image_clip = ImageClip(
         path="assets/sample.jpg",
         start_time=0,
-        duration=10,
+        duration=5,
         position=(200, 120),
         size=(800, 100),
         content_mode=ContentMode.FILL,
