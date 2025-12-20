@@ -72,8 +72,8 @@ def main():
     audio_clip = AudioClip(
         source_path="assets/audio1.mp3",
         start_time=0,
-        source_start=10,
-        source_end=editor.total_duration,
+        source_start=50,
+        source_end=editor.total_duration+50,
     )
     editor.add_audio(audio_clip)
         
