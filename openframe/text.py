@@ -44,3 +44,13 @@ class TextClip(FrameElement):
         """
 
         draw.text(self.position, self.text, font=self.load_font(), fill=self.color)
+
+    @property
+    def bounding_box_size(self) -> Tuple[int, int]:
+        """Compute the pixel area required to render the clip's text."""
+
+        font = self.load_font()
+        overlay = Image.new('RGBA', (1, 1))
+        draw = ImageDraw.Draw(overlay)
+        left, top, right, bottom = draw.textbbox((0, 0), self.text, font=font)
+        return right - left, bottom - top

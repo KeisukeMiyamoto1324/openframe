@@ -10,6 +10,13 @@ class ContentMode(Enum):
 class Layer(Enum):
     TOP = "top"
     BOTTOM = "bottom"
+    
+class AnchorPoint(Enum):
+    TOP_RIGHT = "top-right"
+    TOP_LEFT = "top-left"
+    BOTTOM_RIGHT = "bottom-right"
+    BOTTOM_LEFT = "bottom-right"
+    CENTER = "center"
 
 def _compute_scaled_size(
     original_size: Tuple[int, int],

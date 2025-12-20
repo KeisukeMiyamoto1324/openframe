@@ -43,3 +43,9 @@ class ImageClip(FrameElement):
         """
 
         canvas.paste(self.image, self.position, self.image)
+
+    @property
+    def bounding_box_size(self) -> Tuple[int, int]:
+        """Return the dimensions of the image that will be drawn."""
+
+        return self.image.size

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Tuple
 from PIL import Image, ImageDraw
 
+from openframe.util import AnchorPoint
+
 
 @dataclass(kw_only=True)
 class FrameElement:
@@ -10,6 +12,7 @@ class FrameElement:
     start_time: float
     duration: float
     position: Tuple[int, int]
+    anchor_point: AnchorPoint = AnchorPoint.TOP_LEFT
     size: Tuple[int, int] | None = None
     opacity: float = 1.0
     fade_in_duration: float = 0.0
@@ -24,6 +27,11 @@ class FrameElement:
         """
 
         return self.start_time + self.duration
+
+    @property
+    def bounding_box_size(self) -> Tuple[int, int]:
+        raise NotImplementedError("FrameElement.bounding_box_size should be implemented by subclasses.")
+        
 
     def is_visible(self, t: float) -> bool:
         """Report whether the element is visible at the requested time.
