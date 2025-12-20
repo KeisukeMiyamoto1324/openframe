@@ -48,10 +48,18 @@ def create_scene(bg: str, telop: str, slide: str) -> Scene:
         size=(1920, 1080),
         content_mode=ContentMode.FILL
     )
+    
+    audio_clip = AudioClip(
+        source_path="assets/audio1.mp3",
+        start_time=0,
+        source_start=50,
+        source_end=51,
+    )
 
     scene.add(bg_clip)
     scene.add(slide_clip)
     scene.add(telop_clip)
+    scene.add_audio(audio_clip)
     
     return scene
 
@@ -72,8 +80,8 @@ def main():
     audio_clip = AudioClip(
         source_path="assets/audio1.mp3",
         start_time=0,
-        source_start=50,
-        source_end=editor.total_duration+50,
+        source_start=0,
+        source_end=editor.total_duration,
     )
     editor.add_audio(audio_clip)
         

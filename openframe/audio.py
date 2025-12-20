@@ -16,8 +16,8 @@ class AudioClip:
 
     source_path: str
     start_time: float
-    source_start: float
-    source_end: float
+    source_start: float = 0
+    source_end: float | None = None
 
     @property
     def duration(self) -> float:
@@ -26,7 +26,8 @@ class AudioClip:
         Returns:
             float: Duration in seconds.
         """
-        return self.source_end - self.source_start
+        end = self.source_end if self.source_end is not None else self._source_duration()
+        return end - self.source_start
 
     @property
     def end_time(self) -> float:
@@ -49,8 +50,20 @@ class AudioClip:
         """
         audio = self._decode_audio(sample_rate, AudioLayout.MONO.value)
         start_idx = int(self.source_start * sample_rate)
-        end_idx = int(self.source_end * sample_rate)
+        end_idx = int(self.source_end * sample_rate) if self.source_end is not None else audio.shape[0]
         return audio[start_idx:end_idx]
+
+    def _source_duration(self) -> float:
+        """Return source audio duration in seconds.
+
+        Returns:
+            float: Duration in seconds.
+        """
+        container = av.open(self.source_path)
+        stream = container.streams.audio[0]
+        duration = float(stream.duration * stream.time_base)
+        container.close()
+        return duration
 
     def _decode_audio(self, sample_rate: int, layout: str) -> np.ndarray:
         """Decode audio file into a normalized float32 array.
