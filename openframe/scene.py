@@ -7,6 +7,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from openframe.element import FrameElement
+from openframe.audio import AudioClip, AudioLayout
 from openframe.util import Layer
 
 
@@ -20,6 +21,7 @@ class Scene:
     start_at: float
     _elements: list[FrameElement] = field(default_factory=list)
     _scenes: list['Scene'] = field(default_factory=list)
+    _audio: list[AudioClip] = field(default_factory=list)
     _content_type: Optional['Scene.ContentType'] = field(default=None, init=False)
     
 
@@ -48,6 +50,17 @@ class Scene:
             self._scenes.append(scene)
         elif layer == Layer.BOTTOM:
             self._scenes.insert(0, scene)
+
+    def add_audio(self, clip: AudioClip, layer: Layer=Layer.TOP) -> None:
+        """Queue an audio clip for this scene.
+
+        Args:
+            clip (AudioClip): Audio clip to mix into the timeline.
+        """
+        if layer == Layer.TOP:
+            self._audio.append(clip)
+        elif layer == Layer.BOTTOM:
+            self._audio.insert(0, clip)
         
     def _get_elements(self) -> list[FrameElement]:
         """Adjusts element start times and returns the configured element list.
@@ -65,13 +78,35 @@ class Scene:
                 elements.extend(self._clone_with_offset(child_elements, self.start_at))
             return elements
         
+        return []
+
+    def _get_audio(self) -> list[AudioClip]:
+        """Adjust audio start times and returns the configured audio list.
+
+        Returns:
+            list[AudioClip]: Audio clips shifted according to this scene's start time.
+        """
+        clips = self._clone_audio_with_offset(self._audio, self.start_at)
+
+        if self._content_type != self.ContentType.SCENES:
+            return clips
+
+        for scene in self._scenes:
+            child_clips = scene._get_audio()
+            clips.extend(self._clone_audio_with_offset(child_clips, self.start_at))
+
+        return clips
+        
     @property
     def total_duration(self) -> float:
         elements = self._get_elements()
-        if not elements:
-            return self.start_at
+        audio_clips = self._get_audio()
+        end_times = [self.start_at]
 
-        return max(element.end_time for element in elements)
+        end_times.extend(element.end_time for element in elements)
+        end_times.extend(clip.end_time for clip in audio_clips)
+
+        return max(end_times)
         
 
     @staticmethod
@@ -86,6 +121,19 @@ class Scene:
             list[FrameElement]: New elements with adjusted start times.
         """
         return [replace(element, start_time=element.start_time + offset) for element in elements]
+
+    @staticmethod
+    def _clone_audio_with_offset(clips: list[AudioClip], offset: float) -> list[AudioClip]:
+        """Return copies of audio clips with their start times shifted.
+
+        Args:
+            clips (list[AudioClip]): Audio clips to clone.
+            offset (float): Amount of seconds to add to each start time.
+
+        Returns:
+            list[AudioClip]: New audio clips with adjusted start times.
+        """
+        return [replace(clip, start_time=clip.start_time + offset) for clip in clips]
 
     def _ensure_content_type(self, desired: 'Scene.ContentType') -> None:
         """Set the content type once and prevent mixing elements with scenes.
@@ -148,6 +196,12 @@ class Scene:
         total_frames = int(self.total_duration * fps)
         
         self._elements = self._get_elements()
+        audio_clips = self._get_audio()
+        audio_stream = None
+
+        if audio_clips:
+            audio_stream = output_container.add_stream('aac', rate=44100)
+            audio_stream.layout = AudioLayout.MONO.value
 
         for i in tqdm(range(total_frames), desc="Exporting", unit="frame", ncols=100):
             t = i / fps
@@ -159,4 +213,51 @@ class Scene:
         for packet in stream.encode():
             output_container.mux(packet)
 
+        if audio_stream is not None:
+            self._encode_audio(output_container, audio_stream, audio_clips)
+
         output_container.close()
+
+    def _encode_audio(
+        self,
+        container: av.container.output.OutputContainer,
+        stream: av.audio.stream.AudioStream,
+        clips: list[AudioClip],
+    ) -> None:
+        """Mix audio clips and encode them into the output container.
+
+        Args:
+            container (av.container.output.OutputContainer): Output container.
+            stream (av.audio.stream.AudioStream): Target audio stream.
+            clips (list[AudioClip]): Audio clips to mix.
+        """
+        sample_rate = stream.rate
+        channels = 1
+        total_samples = int(self.total_duration * sample_rate)
+        mix = np.zeros((total_samples, channels), dtype=np.float32)
+
+        for clip in clips:
+            clip_data = clip.render(sample_rate, channels)
+            start_idx = int(clip.start_time * sample_rate)
+            end_idx = min(total_samples, start_idx + clip_data.shape[0])
+            mix[start_idx:end_idx] += clip_data[: end_idx - start_idx]
+
+        mix = np.clip(mix, -1.0, 1.0)
+        frame_size = stream.codec_context.frame_size or 1024
+        layout = stream.layout.name
+
+        for start in range(0, total_samples, frame_size):
+            end = min(total_samples, start + frame_size)
+            chunk = mix[start:end]
+
+            if end - start < frame_size:
+                pad = np.zeros((frame_size - (end - start), channels), dtype=np.float32)
+                chunk = np.vstack((chunk, pad))
+
+            frame = av.AudioFrame.from_ndarray(chunk.T, format="fltp", layout=layout)
+            frame.sample_rate = sample_rate
+            for packet in stream.encode(frame):
+                container.mux(packet)
+
+        for packet in stream.encode():
+            container.mux(packet)

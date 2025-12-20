@@ -68,6 +68,14 @@ def main():
         scene = create_scene(bg="assets/sample.jpg", telop=scene_config.telop, slide=scene_config.slide)
         scene.start_at = editor.total_duration
         editor.add_scene(scene)
+
+    audio_clip = AudioClip(
+        source_path="assets/audio1.mp3",
+        start_time=0,
+        source_start=10,
+        source_end=editor.total_duration,
+    )
+    editor.add_audio(audio_clip)
         
     editor.render(output_path="assets/youtube.mp4")
 
