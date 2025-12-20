@@ -11,7 +11,7 @@ from openframe.element import FrameElement
 
 @dataclass
 class Scene:
-    """Manage clip composition and export of video timelines."""
+    """Hold a set of elements or child scenes and export their combined timeline."""
     class ContentType(Enum):
         ELEMENTS = "elements"
         SCENES = "scenes"
@@ -32,11 +32,20 @@ class Scene:
         self._elements.append(element)
         
     def add_scene(self, scene: 'Scene') -> None:
-        """Enqueue a scene for later rendering."""
+        """Queue a nested scene and guard against mixing with frame elements.
+
+        Args:
+            scene (Scene): Scene whose timeline should be rendered as part of this scene.
+        """
         self._ensure_content_type(self.ContentType.SCENES)
         self._scenes.append(scene)
         
     def _get_elements(self) -> list[FrameElement]:
+        """Adjusts element start times and returns the configured element list.
+
+        Returns:
+            list[FrameElement]: Elements shifted according to this scene's start time.
+        """
         if self._content_type == self.ContentType.ELEMENTS:
             for element in self._elements:
                 element.start_time += self.start_at
@@ -65,6 +74,8 @@ class Scene:
 
         Args:
             t (float): Current time in seconds for visibility checks.
+            width (int): Frame width in pixels.
+            height (int): Frame height in pixels.
 
         Returns:
             np.ndarray: Frame image data in RGBA format.
@@ -86,10 +97,14 @@ class Scene:
         fps: int = 30, 
         output_path: str = "output.mp4"
     ) -> None:
-        """Encode frames for the requested duration with progress feedback.
+        """Encode all configured elements into a video file.
 
         Args:
             total_duration (float): Total duration of the exported video in seconds.
+            width (int): Frame width in pixels.
+            height (int): Frame height in pixels.
+            fps (int): Frames per second for the exported video.
+            output_path (str): File path to write the encoded video into.
 
         Returns:
             None
