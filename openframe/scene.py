@@ -69,6 +69,7 @@ class Scene:
         output_container = av.open(output_path, mode='w')
         stream = output_container.add_stream('h264', rate=fps)
         stream.pix_fmt = 'yuv420p'
+        stream.width, stream.height = width, height
         total_frames = int(total_duration * fps)
 
         for i in tqdm(range(total_frames), desc="Exporting", unit="frame", ncols=100):
