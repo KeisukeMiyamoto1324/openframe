@@ -18,6 +18,11 @@ class AnchorPoint(Enum):
     BOTTOM_LEFT = "bottom-right"
     CENTER = "center"
 
+class TextAlign(Enum):
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
 def _compute_scaled_size(
     original_size: Tuple[int, int],
     target_size: Tuple[int, int],
