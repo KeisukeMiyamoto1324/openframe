@@ -24,7 +24,7 @@ def create_scene(bg: str, telop: str, slide: str) -> Scene:
         duration=3,
         position=(width//2, height//2),
         anchor_point=AnchorPoint.CENTER,
-        text_align=TextAlign.RIGHT,
+        text_align=TextAlign.CENTER,
         font_size=64,
         fade_in_duration=0.5,
         fade_out_duration=0.5

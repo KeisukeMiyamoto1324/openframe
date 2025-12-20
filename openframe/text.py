@@ -43,7 +43,7 @@ class TextClip(FrameElement):
     font_size: int
     color: Tuple[int, int, int, int] = (255, 255, 255, 255)
     font: str = DEFAULT_FONT_PATH
-    text_align: TextAlign | None = TextAlign.LEFT
+    text_align: TextAlign = TextAlign.LEFT
     image: Image.Image = field(init=False)
     _text_size: Tuple[int, int] = field(init=False)
     _bbox_size: Tuple[int, int] = field(init=False)
@@ -67,25 +67,19 @@ class TextClip(FrameElement):
 
         self.image = Image.new('RGBA', self._bbox_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(self.image)
-        align = self.text_align or TextAlign.LEFT
-        align_key = {
-            TextAlign.LEFT: "left",
-            TextAlign.CENTER: "center",
-            TextAlign.RIGHT: "right",
-        }.get(align, "left")
         box_width = self._bbox_size[0]
         text_width = self._text_size[0]
         x_pos = {
             TextAlign.LEFT: 0,
             TextAlign.CENTER: (box_width - text_width) // 2,
             TextAlign.RIGHT: box_width - text_width,
-        }.get(align, 0)
+        }.get(self.text_align, 0)
         draw.multiline_text(
             (x_pos - left, -top),
             self.text,
             font=font,
             fill=self.color,
-            align=align_key,
+            align=self.text_align.value,
         )
 
     def load_font(self) -> ImageFont.FreeTypeFont:
