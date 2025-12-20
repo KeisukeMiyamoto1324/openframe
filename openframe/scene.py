@@ -15,35 +15,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class Scene:
-    """Manage clip composition and export of video timelines.
-
-    Attributes:
-        width (int): Frame width in pixels.
-        height (int): Frame height in pixels.
-        fps (int): Frames per second for the output video.
-        output_path (str): Destination file path for the rendered video.
-    """
-
-    width: int
-    height: int
-    fps: int
-    output_path: str = 'output.mp4'
+    """Manage clip composition and export of video timelines."""
     _elements: list[FrameElement] = field(default_factory=list)
     _scenes: list['Scene'] = field(default_factory=list)
-    _output_container: 'OutputContainer | None' = field(init=False, default=None)
-    _stream: 'VideoStream | None' = field(init=False, default=None)
-
-    def __post_init__(self) -> None:
-        """Open the output container and configure the stream.
-
-        Returns:
-            None
-        """
-        self._output_container = av.open(self.output_path, mode='w')
-        self._stream = self._output_container.add_stream('h264', rate=self.fps)
-        self._stream.width = self.width
-        self._stream.height = self.height
-        self._stream.pix_fmt = 'yuv420p'
+    
 
     def add(self, element: FrameElement) -> None:
         """Enqueue a frame element for later rendering.
@@ -57,7 +32,7 @@ class Scene:
         """Enqueue a scene for later rendering."""
         self._scenes.append(scene)
 
-    def _create_frame(self, t: float) -> np.ndarray:
+    def _create_frame(self, t: float, width: int, height: int) -> np.ndarray:
         """Render all visible clips onto a single RGBA frame.
 
         Args:
@@ -67,7 +42,7 @@ class Scene:
             np.ndarray: Frame image data in RGBA format.
         """
 
-        img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 255))
+        img = Image.new('RGBA', (width, height), (0, 0, 0, 255))
 
         for clip in self._elements:
             if clip.is_visible(t):
@@ -75,7 +50,14 @@ class Scene:
 
         return np.array(img)
 
-    def render(self, total_duration: float) -> None:
+    def render(
+        self, 
+        total_duration: float, 
+        width: int = 1920, 
+        height: int = 1080, 
+        fps: int = 30, 
+        output_path: str = "output.mp4"
+    ) -> None:
         """Encode frames for the requested duration with progress feedback.
 
         Args:
@@ -84,17 +66,19 @@ class Scene:
         Returns:
             None
         """
-
-        total_frames = int(total_duration * self.fps)
+        output_container = av.open(output_path, mode='w')
+        stream = output_container.add_stream('h264', rate=fps)
+        stream.pix_fmt = 'yuv420p'
+        total_frames = int(total_duration * fps)
 
         for i in tqdm(range(total_frames), desc="Exporting", unit="frame", ncols=100):
-            t = i / self.fps
-            frame_data = self._create_frame(t)
+            t = i / fps
+            frame_data = self._create_frame(t, width, height)
             frame = av.VideoFrame.from_ndarray(frame_data, format='rgba')
-            for packet in self._stream.encode(frame):
-                self._output_container.mux(packet)
+            for packet in stream.encode(frame):
+                output_container.mux(packet)
 
-        for packet in self._stream.encode():
-            self._output_container.mux(packet)
+        for packet in stream.encode():
+            output_container.mux(packet)
 
-        self._output_container.close()
+        output_container.close()

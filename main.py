@@ -2,12 +2,7 @@ from openframe import *
 
 
 def main():
-    editor = Scene(
-        width=1920,
-        height=1080,
-        fps=30,
-        output_path="assets/output.mp4"
-    )
+    editor = Scene()
     
     image_clip = ImageClip(
         path="assets/sample.jpg",
@@ -29,7 +24,7 @@ def main():
 
     editor.add(image_clip)
     editor.add(text_project_name)
-    editor.render(total_duration=10)
+    editor.render(total_duration=10, width=1920, height=1080, fps=30, output_path="assets/output.mp4")
     
 
 if __name__ == "__main__":
