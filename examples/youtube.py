@@ -69,6 +69,7 @@ def main():
         start_time=0,
         source_start=0,
         source_end=editor.total_duration,
+        volume=0.1,
         fade_in_duration=1,
         fade_out_duration=1
     )

@@ -72,6 +72,7 @@ class AudioClip:
     loop_enable: bool = False
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
+    volume: float = 1.0
 
     @property
     def duration(self) -> float:
@@ -160,7 +161,7 @@ class AudioClip:
             )
             envelope[-fade_out_samples:] *= fade_out_curve
 
-        return samples * envelope[:, None]
+        return samples * envelope[:, None] * self.volume
 
     def _source_duration(self) -> float:
         """Return source audio duration in seconds.
