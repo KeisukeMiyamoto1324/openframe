@@ -78,7 +78,10 @@ def main():
         duration=editor.total_duration,
         position=(0, 0),
         size=(1920, 1080),
-        content_mode=ContentMode.FILL
+        content_mode=ContentMode.FILL,
+        loop_enable=True,
+        fade_in_duration=0.5,
+        fade_out_duration=0.5
     )
     bg_scene.add(bg_clip)
     

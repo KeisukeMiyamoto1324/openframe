@@ -60,12 +60,16 @@ def _decode_audio_cached(path: str, sample_rate: int, layout: str) -> np.ndarray
 
 @dataclass(kw_only=True)
 class AudioClip:
-    """Represent an audio segment placed on the scene timeline."""
+    """Represent an audio segment placed on the scene timeline.
+
+    The clip can repeat automatically when loop_enable is True and the requested duration exceeds the source length.
+    """
 
     source_path: str
     start_time: float
     source_start: float = 0
     source_end: float | None = None
+    loop_enable: bool = False
 
     @property
     def duration(self) -> float:
@@ -99,7 +103,23 @@ class AudioClip:
         audio = self._decode_audio(sample_rate, AudioLayout.MONO.value)
         start_idx = int(self.source_start * sample_rate)
         end_idx = int(self.source_end * sample_rate) if self.source_end is not None else audio.shape[0]
-        return audio[start_idx:end_idx]
+        desired_samples = max(0, int(self.duration * sample_rate))
+        segment = audio[start_idx:end_idx]
+
+        if not self.loop_enable or desired_samples <= segment.shape[0]:
+            return segment[:desired_samples]
+
+        if desired_samples == 0 or segment.shape[0] == 0:
+            channels_count = audio.shape[1]
+            return np.zeros((desired_samples, channels_count), dtype=np.float32)
+
+        repetitions = desired_samples // segment.shape[0]
+        remainder = desired_samples % segment.shape[0]
+        chunks = [segment] * repetitions
+        if remainder:
+            chunks.append(segment[:remainder])
+
+        return np.concatenate(chunks, axis=0)
 
     def _source_duration(self) -> float:
         """Return source audio duration in seconds.

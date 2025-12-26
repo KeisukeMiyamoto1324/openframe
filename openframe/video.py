@@ -108,12 +108,16 @@ def _prepare_frames(
 
 @dataclass(kw_only=True)
 class VideoClip(FrameElement):
-    """Render a series of video frames as a frame element."""
+    """Render a series of video frames as a frame element.
+
+    Looping can be enabled so the clip repeats whenever the requested duration exceeds the source length.
+    """
 
     source_path: str
     source_start: float = 0.0
     source_end: float | None = None
     content_mode: ContentMode = ContentMode.NONE
+    loop_enable: bool = False
     _frames: List[Image.Image] = field(init=False)
     _frame_offsets: List[float] = field(init=False)
     _visible_duration: float = field(init=False)
@@ -148,7 +152,10 @@ class VideoClip(FrameElement):
         self._frames = selected_frames
         self._frame_offsets = [ts - base for ts in selected_timestamps]
         self._source_duration = self._compute_source_duration(selected_timestamps)
-        self._visible_duration = min(self.duration, self._source_duration)
+        if self.loop_enable:
+            self._visible_duration = self.duration
+        else:
+            self._visible_duration = min(self.duration, self._source_duration)
 
     def is_visible(self, t: float) -> bool:
         """Report whether the clip should still draw its frames.
@@ -192,7 +199,11 @@ class VideoClip(FrameElement):
             Image.Image: Frame that should be drawn.
         """
 
-        elapsed = max(0.0, min(t - self.start_time, self._visible_duration))
+        elapsed_base = max(0.0, t - self.start_time)
+        if self.loop_enable and self._source_duration > 0:
+            elapsed = elapsed_base % self._source_duration
+        else:
+            elapsed = min(elapsed_base, self._visible_duration)
         index = bisect_right(self._frame_offsets, elapsed) - 1
         if index < 0:
             index = 0
