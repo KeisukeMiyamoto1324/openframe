@@ -69,6 +69,8 @@ def main():
         start_time=0,
         source_start=0,
         source_end=editor.total_duration,
+        fade_in_duration=1,
+        fade_out_duration=1
     )
     bg_scene.add_audio(audio_clip)
     
@@ -80,8 +82,8 @@ def main():
         size=(1920, 1080),
         content_mode=ContentMode.FILL,
         loop_enable=True,
-        fade_in_duration=0.5,
-        fade_out_duration=0.5
+        fade_in_duration=1,
+        fade_out_duration=1
     )
     bg_scene.add(bg_clip)
     

@@ -70,6 +70,8 @@ class AudioClip:
     source_start: float = 0
     source_end: float | None = None
     loop_enable: bool = False
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
     @property
     def duration(self) -> float:
@@ -107,19 +109,58 @@ class AudioClip:
         segment = audio[start_idx:end_idx]
 
         if not self.loop_enable or desired_samples <= segment.shape[0]:
-            return segment[:desired_samples]
-
-        if desired_samples == 0 or segment.shape[0] == 0:
+            trimmed = segment[:desired_samples]
+        elif desired_samples == 0 or segment.shape[0] == 0:
             channels_count = audio.shape[1]
-            return np.zeros((desired_samples, channels_count), dtype=np.float32)
+            trimmed = np.zeros((desired_samples, channels_count), dtype=np.float32)
+        else:
+            repetitions = desired_samples // segment.shape[0]
+            remainder = desired_samples % segment.shape[0]
+            chunks = [segment] * repetitions
+            if remainder:
+                chunks.append(segment[:remainder])
+            trimmed = np.concatenate(chunks, axis=0)
 
-        repetitions = desired_samples // segment.shape[0]
-        remainder = desired_samples % segment.shape[0]
-        chunks = [segment] * repetitions
-        if remainder:
-            chunks.append(segment[:remainder])
+        return self._apply_fades(trimmed, sample_rate)
 
-        return np.concatenate(chunks, axis=0)
+    def _apply_fades(self, samples: np.ndarray, sample_rate: int) -> np.ndarray:
+        """Apply fade-in and fade-out envelopes to the rendered samples.
+
+        Args:
+            samples: The raw samples to shape.
+            sample_rate: Number of samples per second used for sizing fades.
+
+        Returns:
+            np.ndarray: Samples with fade envelopes applied.
+        """
+        if samples.shape[0] == 0:
+            return samples
+
+        total_samples = samples.shape[0]
+        envelope = np.ones(total_samples, dtype=np.float32)
+
+        fade_in_samples = min(total_samples, int(self.fade_in_duration * sample_rate))
+        if fade_in_samples > 0:
+            envelope[:fade_in_samples] = np.linspace(
+                0.0,
+                1.0,
+                fade_in_samples,
+                dtype=np.float32,
+                endpoint=False,
+            )
+
+        fade_out_samples = min(total_samples, int(self.fade_out_duration * sample_rate))
+        if fade_out_samples > 0:
+            fade_out_curve = np.linspace(
+                1.0,
+                0.0,
+                fade_out_samples,
+                dtype=np.float32,
+                endpoint=False,
+            )
+            envelope[-fade_out_samples:] *= fade_out_curve
+
+        return samples * envelope[:, None]
 
     def _source_duration(self) -> float:
         """Return source audio duration in seconds.
