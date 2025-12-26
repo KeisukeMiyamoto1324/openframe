@@ -1,31 +1,35 @@
 from openframe import *
 
 
-def main():
-    editor = Scene(start_at=3)
-    
-    image_clip = ImageClip(
+width, height, fps = 1980, 1080, 30
+
+scene = Scene(start_at=0)
+
+scene.add(
+    ImageClip(
         path="assets/sample.jpg",
         start_time=0,
         duration=5,
-        position=(200, 120),
-        size=(800, 100),
+        position=(0, 0),
+        size=(width, height),
         content_mode=ContentMode.FILL,
-        fade_in_duration=1
+        fade_in_duration=1,
+        fade_out_duration=1,
     )
+)
 
-    text_project_name = TextClip(
-        text="project alpha",
+scene.add(
+    TextClip(
+        text="OpenFrame Demo",
         start_time=0,
         duration=5,
-        position=(800, 200),
-        font_size=32,
+        position=(width//2, height//2),
+        anchor_point=AnchorPoint.CENTER,
+        font_size=48,
+        text_align=TextAlign.CENTER,
+        fade_in_duration=1,
+        fade_out_duration=1,
     )
+)
 
-    editor.add(image_clip)
-    editor.add(text_project_name)
-    editor.render(total_duration=10, width=1920, height=1080, fps=30, output_path="assets/output.mp4")
-    
-
-if __name__ == "__main__":
-    main()
+scene.render(output_path="output.mp4", width=width, height=height, fps=fps)
