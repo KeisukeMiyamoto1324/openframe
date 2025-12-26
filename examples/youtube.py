@@ -58,7 +58,7 @@ def main():
     
     editor = Scene(start_at=0)
     
-    for scene_config in scene_configs:
+    for scene_config in scene_configs*5:
         scene = create_scene(telop=scene_config.telop, slide=scene_config.slide)
         scene.start_at = editor.total_duration
         editor.add_scene(scene)
@@ -70,7 +70,7 @@ def main():
         source_start=0,
         source_end=editor.total_duration,
     )
-    scene.add_audio(audio_clip)
+    bg_scene.add_audio(audio_clip)
     
     bg_clip = VideoClip(
         source_path="assets/bg.mp4",
@@ -80,9 +80,9 @@ def main():
         size=(1920, 1080),
         content_mode=ContentMode.FILL
     )
-    scene.add(bg_clip)
+    bg_scene.add(bg_clip)
     
-    editor.add_scene(bg_scene)
+    editor.add_scene(bg_scene, layer=Layer.BOTTOM)
     
     end = time.time()
     print(f"{end-start}")
