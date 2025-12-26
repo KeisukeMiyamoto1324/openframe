@@ -116,6 +116,8 @@ class VideoClip(FrameElement):
     content_mode: ContentMode = ContentMode.NONE
     _frames: List[Image.Image] = field(init=False)
     _frame_offsets: List[float] = field(init=False)
+    _visible_duration: float = field(init=False)
+    _source_duration: float = field(init=False)
     _current_frame: Image.Image | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
@@ -145,6 +147,23 @@ class VideoClip(FrameElement):
 
         self._frames = selected_frames
         self._frame_offsets = [ts - base for ts in selected_timestamps]
+        self._source_duration = self._compute_source_duration(selected_timestamps)
+        self._visible_duration = min(self.duration, self._source_duration)
+
+    def is_visible(self, t: float) -> bool:
+        """Report whether the clip should still draw its frames.
+
+        Args:
+            t: Current timeline time in seconds.
+
+        Returns:
+            bool: True while the source has remaining frames.
+        """
+
+        if not super().is_visible(t):
+            return False
+
+        return t < self.start_time + self._visible_duration
 
     def render(self, canvas: Image.Image, t: float) -> None:
         """Select the correct frame before delegating to the base renderer.
@@ -173,7 +192,7 @@ class VideoClip(FrameElement):
             Image.Image: Frame that should be drawn.
         """
 
-        elapsed = max(0.0, min(t - self.start_time, self.duration))
+        elapsed = max(0.0, min(t - self.start_time, self._visible_duration))
         index = bisect_right(self._frame_offsets, elapsed) - 1
         if index < 0:
             index = 0
@@ -195,6 +214,24 @@ class VideoClip(FrameElement):
         if self._current_frame is None:
             return
         canvas.paste(self._current_frame, (0, 0), self._current_frame)
+
+    def _compute_source_duration(self, timestamps: List[float]) -> float:
+        """Estimate how long the decoded source actually plays.
+
+        Args:
+            timestamps: Timeline timestamps of the decoded frames.
+
+        Returns:
+            float: Estimated duration of the source clip.
+        """
+
+        if len(timestamps) <= 1:
+            return self.duration
+
+        last_offset = timestamps[-1] - timestamps[0]
+        last_interval = timestamps[-1] - timestamps[-2]
+        frame_gap = max(last_interval, 1 / 30)
+        return last_offset + frame_gap
 
     @property
     def bounding_box_size(self) -> Tuple[int, int]:
