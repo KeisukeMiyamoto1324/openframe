@@ -1,6 +1,6 @@
 # OpenFrame
 
-OpenFrame is a **pure Python** video editing toolkit that lets you blend text, images, video, and audio without ever leaving the language or spawning subprocesses. It is designed for fast exports (uses `av` with `ultrafast`/`zerolatency` presets) while keeping the API expressive and minimal so you can build timelines with a few dataclass-based objects.
+OpenFrame is a pure Python video editing toolkit that lets you blend text, images, video, and audio without ever leaving the language. It is designed for fast exports while keeping the API expressive and minimal so you can make videos very easily.
 
 ## Installation
 
