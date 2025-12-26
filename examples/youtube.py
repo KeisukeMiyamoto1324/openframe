@@ -15,7 +15,7 @@ height = 1080
 fps = 30
 
 
-def create_scene(bg: str, telop: str, slide: str) -> Scene:
+def create_scene(telop: str, slide: str) -> Scene:
     scene = Scene(start_at=0)
     
     telop_clip = TextClip(
@@ -42,16 +42,6 @@ def create_scene(bg: str, telop: str, slide: str) -> Scene:
         fade_out_duration=0.5
     )
     
-    bg_clip = ImageClip(
-        path=bg,
-        start_time=0,
-        duration=3,
-        position=(0, 0),
-        size=(1920, 1080),
-        content_mode=ContentMode.FILL
-    )
-
-    scene.add(bg_clip)
     scene.add(slide_clip)
     scene.add(telop_clip)
 
@@ -69,20 +59,32 @@ def main():
     editor = Scene(start_at=0)
     
     for scene_config in scene_configs:
-        scene = create_scene(bg="assets/sample.jpg", telop=scene_config.telop, slide=scene_config.slide)
+        scene = create_scene(telop=scene_config.telop, slide=scene_config.slide)
         scene.start_at = editor.total_duration
         editor.add_scene(scene)
 
+    bg_scene = Scene(start_at=0)
     audio_clip = AudioClip(
         source_path="assets/audio1.mp3",
         start_time=0,
         source_start=0,
         source_end=editor.total_duration,
     )
-    editor.add_audio(audio_clip)
+    scene.add_audio(audio_clip)
+    
+    bg_clip = VideoClip(
+        source_path="assets/bg.mp4",
+        start_time=0,
+        duration=editor.total_duration,
+        position=(0, 0),
+        size=(1920, 1080),
+        content_mode=ContentMode.FILL
+    )
+    scene.add(bg_clip)
+    
+    editor.add_scene(bg_scene)
     
     end = time.time()
-    
     print(f"{end-start}")
     
     editor.render(output_path="assets/youtube.mp4")
