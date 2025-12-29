@@ -84,7 +84,8 @@ def main():
         content_mode=ContentMode.FILL,
         loop_enable=True,
         fade_in_duration=1,
-        fade_out_duration=1
+        fade_out_duration=1,
+        playback_rate=2
     )
     bg_scene.add(bg_clip)
     

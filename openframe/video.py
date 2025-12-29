@@ -111,6 +111,7 @@ class VideoClip(FrameElement):
     """Render a series of video frames as a frame element.
 
     Looping can be enabled so the clip repeats whenever the requested duration exceeds the source length.
+    Use playback_rate below 1.0 to play in slow motion.
     """
 
     source_path: str
@@ -118,6 +119,7 @@ class VideoClip(FrameElement):
     source_end: float | None = None
     content_mode: ContentMode = ContentMode.NONE
     loop_enable: bool = False
+    playback_rate: float = 1.0
     _frames: List[Image.Image] = field(init=False)
     _frame_offsets: List[float] = field(init=False)
     _visible_duration: float = field(init=False)
@@ -130,6 +132,9 @@ class VideoClip(FrameElement):
         Returns:
             None
         """
+
+        if self.playback_rate <= 0:
+            raise ValueError("playback_rate must be greater than 0.")
 
         frames, timestamps = _prepare_frames(
             self.source_path,
@@ -155,7 +160,7 @@ class VideoClip(FrameElement):
         if self.loop_enable:
             self._visible_duration = self.duration
         else:
-            self._visible_duration = min(self.duration, self._source_duration)
+            self._visible_duration = min(self.duration, self._source_duration / self.playback_rate)
 
     def is_visible(self, t: float) -> bool:
         """Report whether the clip should still draw its frames.
@@ -201,9 +206,9 @@ class VideoClip(FrameElement):
 
         elapsed_base = max(0.0, t - self.start_time)
         if self.loop_enable and self._source_duration > 0:
-            elapsed = elapsed_base % self._source_duration
+            elapsed = (elapsed_base * self.playback_rate) % self._source_duration
         else:
-            elapsed = min(elapsed_base, self._visible_duration)
+            elapsed = min(elapsed_base, self._visible_duration) * self.playback_rate
         index = bisect_right(self._frame_offsets, elapsed) - 1
         if index < 0:
             index = 0
