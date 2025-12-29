@@ -3,4 +3,5 @@ from openframe.text import TextClip
 from openframe.image import ImageClip
 from openframe.audio import AudioClip
 from openframe.video import VideoClip
+from openframe.shape import ShapeClip, Rectangle, Circle, Triangle
 from openframe.util import ContentMode, Layer, AnchorPoint, TextAlign

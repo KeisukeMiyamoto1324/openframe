@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 from openframe.element import FrameElement
 from openframe.util import ContentMode, _compute_scaled_size
 
+
 @lru_cache(maxsize=256)
 def _load_image(path: str) -> Image.Image:
     """Load an image from disk and return it as RGBA.
