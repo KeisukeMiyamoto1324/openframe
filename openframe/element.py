@@ -9,9 +9,9 @@ from openframe.util import AnchorPoint
 class FrameElement:
     """Base element that tracks timing and fade animations for clips."""
 
-    start_time: float
-    duration: float
-    position: Tuple[int, int]
+    start_time: float = 0.0
+    duration: float = 1
+    position: Tuple[int, int] = (0, 0)
     anchor_point: AnchorPoint = AnchorPoint.TOP_LEFT
     size: Tuple[int, int] | None = None
     opacity: float = 1.0

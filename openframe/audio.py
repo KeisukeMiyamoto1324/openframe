@@ -66,7 +66,7 @@ class AudioClip:
     """
 
     path: str
-    start_time: float
+    start_time: float = 0
     source_start: float = 0
     source_end: float | None = None
     loop_enable: bool = False

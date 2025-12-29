@@ -40,7 +40,7 @@ class TextClip(FrameElement):
     """
     
     text: str
-    font_size: int
+    font_size: int = 24
     color: Tuple[int, int, int, int] = (255, 255, 255, 255)
     font: str = DEFAULT_FONT_PATH
     text_align: TextAlign = TextAlign.LEFT
