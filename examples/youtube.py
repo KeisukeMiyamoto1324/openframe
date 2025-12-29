@@ -65,7 +65,7 @@ def main():
 
     bg_scene = Scene(start_at=0)
     audio_clip = AudioClip(
-        source_path="assets/audio1.mp3",
+        path="assets/audio1.mp3",
         start_time=0,
         source_start=0,
         source_end=editor.total_duration,
@@ -76,7 +76,7 @@ def main():
     bg_scene.add_audio(audio_clip)
     
     bg_clip = VideoClip(
-        source_path="assets/bg.mp4",
+        path="assets/bg.mp4",
         start_time=0,
         duration=editor.total_duration,
         position=(0, 0),

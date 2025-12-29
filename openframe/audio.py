@@ -65,7 +65,7 @@ class AudioClip:
     The clip can repeat automatically when loop_enable is True and the requested duration exceeds the source length.
     """
 
-    source_path: str
+    path: str
     start_time: float
     source_start: float = 0
     source_end: float | None = None
@@ -169,7 +169,7 @@ class AudioClip:
         Returns:
             float: Duration in seconds.
         """
-        return _source_duration_cached(self.source_path)
+        return _source_duration_cached(self.path)
 
     def _decode_audio(self, sample_rate: int, layout: str) -> np.ndarray:
         """Decode audio file into a normalized float32 array.
@@ -181,4 +181,4 @@ class AudioClip:
         Returns:
             np.ndarray: Audio samples shaped as (samples, channels).
         """
-        return _decode_audio_cached(self.source_path, sample_rate, layout)
+        return _decode_audio_cached(self.path, sample_rate, layout)

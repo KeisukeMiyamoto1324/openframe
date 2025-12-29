@@ -114,7 +114,7 @@ class VideoClip(FrameElement):
     Use playback_rate below 1.0 to play in slow motion.
     """
 
-    source_path: str
+    path: str
     source_start: float = 0.0
     source_end: float | None = None
     content_mode: ContentMode = ContentMode.NONE
@@ -137,7 +137,7 @@ class VideoClip(FrameElement):
             raise ValueError("playback_rate must be greater than 0.")
 
         frames, timestamps = _prepare_frames(
-            self.source_path,
+            self.path,
             self.size,
             self.content_mode,
         )
