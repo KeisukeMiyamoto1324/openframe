@@ -4,7 +4,7 @@ from typing import Tuple
 from PIL import Image, ImageDraw
 
 from openframe.element import FrameElement
-from openframe.util import ContentMode, _compute_scaled_size
+from openframe.util import ContentMode, _resize_image
 
 
 @lru_cache(maxsize=256)
@@ -40,18 +40,7 @@ def _load_resized_image(
     """
 
     loaded = _load_image(path)
-    scaled = _compute_scaled_size(loaded.size, size, content_mode)
-    resized = loaded.resize(scaled, Image.Resampling.LANCZOS)
-
-    if content_mode == ContentMode.FILL:
-        target_width, target_height = size
-        left = (resized.width - target_width) // 2
-        top = (resized.height - target_height) // 2
-        right = left + target_width
-        bottom = top + target_height
-        return resized.crop((left, top, right, bottom))
-
-    return resized
+    return _resize_image(loaded, size, content_mode)
 
 @dataclass
 class ImageClip(FrameElement):

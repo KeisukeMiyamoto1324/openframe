@@ -5,38 +5,7 @@ import av
 from PIL import Image, ImageDraw
 
 from openframe.element import FrameElement
-from openframe.util import ContentMode, _compute_scaled_size
-
-
-def _scale_frame(
-    frame: Image.Image,
-    target_size: Tuple[int, int],
-    mode: ContentMode,
-) -> Image.Image:
-    """Resize the frame according to the requested content mode.
-
-    Args:
-        frame: Source image to adjust.
-        target_size: Desired width and height.
-        mode: Content mode that controls scaling behavior.
-
-    Returns:
-        Image.Image: Adjusted frame image.
-    """
-
-    width = max(1, target_size[0])
-    height = max(1, target_size[1])
-    scaled = _compute_scaled_size(frame.size, (width, height), mode)
-    resized = frame.resize(scaled, Image.Resampling.LANCZOS)
-
-    if mode == ContentMode.FILL:
-        left = (resized.width - width) // 2
-        top = (resized.height - height) // 2
-        right = left + width
-        bottom = top + height
-        return resized.crop((left, top, right, bottom))
-
-    return resized
+from openframe.util import ContentMode, _resize_image
 
 
 @dataclass(kw_only=True)
@@ -198,26 +167,36 @@ class VideoClip(FrameElement):
             None
         """
 
-        if self._frame_iter is None:
-            self._frame_iter = self._container.decode(self._stream)
-
         for frame in self._frame_iter:
-            if frame.pts is not None:
-                frame_time = float(frame.pts * self._time_base)
-            elif frame.time is not None:
-                frame_time = float(frame.time)
-            else:
-                raise ValueError("Decoded frame does not provide timing information.")
+            frame_time = self._frame_time(frame)
 
             if frame_time < self._source_start_time:
                 continue
             if frame_time > self._source_end_time:
                 break
 
+            if frame_time < target_time:
+                continue
+
             self._current_time = frame_time
             self._current_frame = self._process_frame(frame)
-            if frame_time >= target_time:
-                return
+            return
+
+    def _frame_time(self, frame: av.VideoFrame) -> float:
+        """Return the presentation timestamp in seconds for a video frame.
+
+        Args:
+            frame: Video frame from PyAV.
+
+        Returns:
+            float: Frame timestamp in seconds.
+        """
+
+        if frame.pts is not None:
+            return float(frame.pts * self._time_base)
+        if frame.time is not None:
+            return float(frame.time)
+        raise ValueError("Decoded frame does not provide timing information.")
 
     def _process_frame(self, frame: av.VideoFrame) -> Image.Image:
         """Convert and resize a decoded frame for rendering.
@@ -232,7 +211,7 @@ class VideoClip(FrameElement):
         image = frame.to_image().convert('RGBA')
         if self.size is None or self.content_mode == ContentMode.NONE:
             return image
-        return _scale_frame(image, self.size, self.content_mode)
+        return _resize_image(image, self.size, self.content_mode)
 
     def _reset_decoder(self, seek_time: float) -> None:
         """Seek and prepare decoding from the requested time.

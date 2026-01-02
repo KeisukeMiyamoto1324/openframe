@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Tuple
 
+from PIL import Image
+
 
 class ContentMode(Enum):
     FILL = "fill"
@@ -66,3 +68,38 @@ def _compute_scaled_size(
         min(target_width, scaled_width),
         min(target_height, scaled_height),
     )
+
+
+def _resize_image(
+    image: Image.Image,
+    target_size: Tuple[int, int],
+    mode: ContentMode,
+) -> Image.Image:
+    """Resize and crop an image according to the content mode.
+
+    Args:
+        image: Source image to resize.
+        target_size: Target width and height for rendering.
+        mode: Scaling mode.
+
+    Returns:
+        Image.Image: Resized image, cropped when using fill mode.
+    """
+
+    width = max(1, target_size[0])
+    height = max(1, target_size[1])
+
+    if mode == ContentMode.NONE:
+        return image
+
+    scaled = _compute_scaled_size(image.size, (width, height), mode)
+    resized = image.resize(scaled, Image.Resampling.LANCZOS)
+
+    if mode != ContentMode.FILL:
+        return resized
+
+    left = (resized.width - width) // 2
+    top = (resized.height - height) // 2
+    right = left + width
+    bottom = top + height
+    return resized.crop((left, top, right, bottom))
