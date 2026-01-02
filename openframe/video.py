@@ -1,7 +1,5 @@
-from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import List, Tuple
+from typing import Iterator, Tuple
 
 import av
 from PIL import Image, ImageDraw
@@ -41,71 +39,6 @@ def _scale_frame(
     return resized
 
 
-@lru_cache(maxsize=4)
-def _decode_raw_frames(path: str) -> Tuple[Tuple[Image.Image, ...], Tuple[float, ...]]:
-    """Decode a video source freeing its frames and timestamps.
-
-    Args:
-        path: File path to the video asset.
-
-    Returns:
-        Tuple[Tuple[Image.Image, ...], Tuple[float, ...]]: Decoded frames and their timestamps.
-    """
-
-    container = av.open(path)
-    stream = container.streams.video[0]
-    frames: List[Image.Image] = []
-    timestamps: List[float] = []
-    time_base = float(stream.time_base or 0.0)
-    estimated_rate = float(stream.average_rate or 30.0)
-    index = 0
-
-    for frame in container.decode(stream):
-        if frame.pts is not None:
-            timestamp = float(frame.pts * time_base)
-        elif frame.time is not None:
-            timestamp = float(frame.time)
-        else:
-            timestamp = index / estimated_rate
-
-        frames.append(frame.to_image().convert('RGBA'))
-        timestamps.append(timestamp)
-        index += 1
-
-    container.close()
-
-    if not frames:
-        raise ValueError("Video source contains no frames.")
-
-    return tuple(frames), tuple(timestamps)
-
-
-def _prepare_frames(
-    path: str,
-    size: Tuple[int, int] | None,
-    content_mode: ContentMode,
-) -> Tuple[List[Image.Image], Tuple[float, ...]]:
-    """Prepare processed frames for the requested configuration.
-
-    Args:
-        path: Video source path.
-        size: Optional target size for scaling.
-        content_mode: Determines how the frame is resized.
-
-    Returns:
-        Tuple[List[Image.Image], Tuple[float, ...]]: Frames ready for rendering and their timestamps.
-    """
-
-    raw_frames, timestamps = _decode_raw_frames(path)
-    if size is None or content_mode == ContentMode.NONE:
-        return list(raw_frames), timestamps
-
-    scaled_frames = [
-        _scale_frame(frame, size, content_mode) for frame in raw_frames
-    ]
-    return scaled_frames, timestamps
-
-
 @dataclass(kw_only=True)
 class VideoClip(FrameElement):
     """Render a series of video frames as a frame element.
@@ -120,14 +53,19 @@ class VideoClip(FrameElement):
     content_mode: ContentMode = ContentMode.NONE
     loop_enable: bool = False
     playback_rate: float = 1.0
-    _frames: List[Image.Image] = field(init=False)
-    _frame_offsets: List[float] = field(init=False)
     _visible_duration: float = field(init=False)
     _source_duration: float = field(init=False)
     _current_frame: Image.Image | None = field(init=False, default=None)
+    _current_time: float | None = field(init=False, default=None)
+    _container: av.container.input.InputContainer = field(init=False)
+    _stream: av.video.stream.VideoStream = field(init=False)
+    _frame_iter: Iterator[av.VideoFrame] | None = field(init=False, default=None)
+    _time_base: float = field(init=False)
+    _source_start_time: float = field(init=False)
+    _source_end_time: float = field(init=False)
 
     def __post_init__(self) -> None:
-        """Load and slice frames that match the requested source range.
+        """Initialize the decoder and timing for sequential playback.
 
         Returns:
             None
@@ -136,31 +74,32 @@ class VideoClip(FrameElement):
         if self.playback_rate <= 0:
             raise ValueError("playback_rate must be greater than 0.")
 
-        frames, timestamps = _prepare_frames(
-            self.path,
-            self.size,
-            self.content_mode,
-        )
+        self._container = av.open(self.path)
+        self._stream = self._container.streams.video[0]
+        if self._stream.time_base is None:
+            raise ValueError("Video stream does not provide a time base.")
 
-        start_time = max(0.0, self.source_start)
-        end_time = self.source_end
-        start_index = bisect_left(timestamps, start_time)
-        end_index = len(timestamps) if end_time is None else bisect_right(timestamps, end_time)
+        if self._stream.duration is None:
+            raise ValueError("Video stream does not provide a duration.")
 
-        if start_index >= end_index:
+        self._time_base = float(self._stream.time_base)
+        stream_duration = float(self._stream.duration * self._time_base)
+        self._source_start_time = max(0.0, self.source_start)
+        self._source_end_time = stream_duration if self.source_end is None else self.source_end
+
+        if self._source_end_time <= self._source_start_time:
             raise ValueError("No frames available within the requested source range.")
 
-        selected_frames = frames[start_index:end_index]
-        selected_timestamps = timestamps[start_index:end_index]
-        base = selected_timestamps[0]
+        if self._source_end_time > stream_duration:
+            raise ValueError("Requested source range exceeds video duration.")
 
-        self._frames = selected_frames
-        self._frame_offsets = [ts - base for ts in selected_timestamps]
-        self._source_duration = self._compute_source_duration(selected_timestamps)
+        self._source_duration = self._source_end_time - self._source_start_time
         if self.loop_enable:
             self._visible_duration = self.duration
         else:
             self._visible_duration = min(self.duration, self._source_duration / self.playback_rate)
+
+        self._reset_decoder(self._source_start_time)
 
     def is_visible(self, t: float) -> bool:
         """Report whether the clip should still draw its frames.
@@ -209,12 +148,9 @@ class VideoClip(FrameElement):
             elapsed = (elapsed_base * self.playback_rate) % self._source_duration
         else:
             elapsed = min(elapsed_base, self._visible_duration) * self.playback_rate
-        index = bisect_right(self._frame_offsets, elapsed) - 1
-        if index < 0:
-            index = 0
-        if index >= len(self._frames):
-            index = len(self._frames) - 1
-        return self._frames[index]
+
+        target_time = self._source_start_time + elapsed
+        return self._ensure_frame_for_time(target_time)
 
     def _render_content(self, canvas: Image.Image, draw: ImageDraw.ImageDraw) -> None:
         """Paint the current frame onto the overlay canvas.
@@ -231,23 +167,88 @@ class VideoClip(FrameElement):
             return
         canvas.paste(self._current_frame, (0, 0), self._current_frame)
 
-    def _compute_source_duration(self, timestamps: List[float]) -> float:
-        """Estimate how long the decoded source actually plays.
+    def _ensure_frame_for_time(self, target_time: float) -> Image.Image:
+        """Decode frames until the desired timestamp is reached.
 
         Args:
-            timestamps: Timeline timestamps of the decoded frames.
+            target_time: Timestamp in seconds relative to the source.
 
         Returns:
-            float: Estimated duration of the source clip.
+            Image.Image: Decoded frame closest to the target time.
         """
 
-        if len(timestamps) <= 1:
-            return self.duration
+        if self._current_time is None or target_time < self._current_time:
+            self._reset_decoder(self._source_start_time)
 
-        last_offset = timestamps[-1] - timestamps[0]
-        last_interval = timestamps[-1] - timestamps[-2]
-        frame_gap = max(last_interval, 1 / 30)
-        return last_offset + frame_gap
+        if self._current_time is not None and target_time <= self._current_time:
+            return self._current_frame
+
+        self._advance_to_time(target_time)
+        if self._current_frame is None:
+            raise ValueError("Failed to decode a frame at the requested time.")
+        return self._current_frame
+
+    def _advance_to_time(self, target_time: float) -> None:
+        """Advance the decoder until reaching the requested time.
+
+        Args:
+            target_time: Timestamp in seconds relative to the source.
+
+        Returns:
+            None
+        """
+
+        if self._frame_iter is None:
+            self._frame_iter = self._container.decode(self._stream)
+
+        for frame in self._frame_iter:
+            if frame.pts is not None:
+                frame_time = float(frame.pts * self._time_base)
+            elif frame.time is not None:
+                frame_time = float(frame.time)
+            else:
+                raise ValueError("Decoded frame does not provide timing information.")
+
+            if frame_time < self._source_start_time:
+                continue
+            if frame_time > self._source_end_time:
+                break
+
+            self._current_time = frame_time
+            self._current_frame = self._process_frame(frame)
+            if frame_time >= target_time:
+                return
+
+    def _process_frame(self, frame: av.VideoFrame) -> Image.Image:
+        """Convert and resize a decoded frame for rendering.
+
+        Args:
+            frame: Video frame from PyAV.
+
+        Returns:
+            Image.Image: Processed RGBA frame.
+        """
+
+        image = frame.to_image().convert('RGBA')
+        if self.size is None or self.content_mode == ContentMode.NONE:
+            return image
+        return _scale_frame(image, self.size, self.content_mode)
+
+    def _reset_decoder(self, seek_time: float) -> None:
+        """Seek and prepare decoding from the requested time.
+
+        Args:
+            seek_time: Target time in seconds for the seek.
+
+        Returns:
+            None
+        """
+
+        pts = int(seek_time / self._time_base)
+        self._container.seek(pts, stream=self._stream, any_frame=False, backward=True)
+        self._frame_iter = self._container.decode(self._stream)
+        self._current_time = None
+        self._current_frame = None
 
     @property
     def bounding_box_size(self) -> Tuple[int, int]:
@@ -260,4 +261,5 @@ class VideoClip(FrameElement):
         if self.size is not None:
             return (max(1, self.size[0]), max(1, self.size[1]))
 
-        return self._frames[0].size
+        frame = self._ensure_frame_for_time(self._source_start_time)
+        return frame.size
